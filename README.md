@@ -1,200 +1,194 @@
-# wireguard_flutter
+# wireguard_flutter_plus
 
-A flutter plugin to setup and control VPN connection via [Wireguard](https://www.wireguard.com/) tunnel.
+[![Pub](https://img.shields.io/pub/v/wireguard_flutter_plus.svg)](https://pub.dev/packages/wireguard_flutter_plus)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-- [Usage](#usage)
-  - [Initialize](#initialize)
-  - [Connect](#connect)
-  - [Disconnect](#disconnect)
-  - [Stage](#stage)
-- [Supported Platforms](#supported-platforms)
-- [FAQ & Troubleshooting](#faq--troubleshooting)
+A powerful Flutter plugin to setup and control VPN connections via the [WireGuard®](https://www.wireguard.com/) protocol.
 
-# Contributing to wireguard_flutter
+**wireguard_flutter_plus** extends standard WireGuard capabilities with added support for traffic statistics, Android 16KB page sizes, and robust routing features across all major platforms.
 
-Thank you for your interest in contributing to wireguard_flutter! We appreciate your help in making this project better.
+Developed by [Orban Tech](https://orbaninfotech.com/).
 
-Before you start contributing, please take a moment to read the following guidelines.
+## Key Features
 
-## How to Contribute
+- 🚀 **Cross-Platform:** Supports Android, iOS, macOS, Windows, and Linux out of the box.
+- 📊 **Traffic Statistics:** Real-time download/upload speed and total data usage.
+- 📱 **Modern Android Support:** Fully supports **Android 16KB page size** (API 35+ ready).
+- 🔔 **Notification Support:** Native traffic status notifications.
+- 🛣️ **Advanced Routing:** Full control over allowed IPs and DNS settings.
 
-1. Fork the repository to your GitHub account.
-2. Clone the forked repository to your local machine.
-3. Create a new branch for your contribution:
-   ```bash
-   git checkout -b feature/your-feature-name
-   ```
-4. Make your changes and ensure that the code follows the project's coding standards.
-5. Commit your changes with a descriptive commit message:
-   ```bash
-   git commit -m "Add your descriptive message here"
-   ```
-6. Push your changes to your forked repository:
-   ```bash
-   git push origin feature/your-feature-name
-   ```
-7. Open a pull request in the original repository and provide a detailed description of your changes.
+## Installation
 
+Add `wireguard_flutter_plus` to your `pubspec.yaml`:
 
-## Usage
-
-To use this plugin, add `wireguard_flutter_plus` or visit [Orban Infotech](https://orbaninfotech.com/).
+```bash
+flutter pub add wireguard_flutter_plus
 
 ```
-flutter pub add wireguard_flutter
-```
 
-### Initialize
+## Platform Configuration
 
-Initialize a wireguard instance with a valid name using `initialize`:
+### iOS & macOS
 
-```dart
-final wireguard = WireGuardFlutter.instance;
+To use WireGuard on Apple platforms, you must create a **Network Extension** target in Xcode.
 
-// initialize the interface
-await wireguard.initialize(interfaceName: 'wg0');
-```
-
-and declare the `.conf` data:
-```dart
-const String conf = '''[Interface]
-PrivateKey = 0IZmHsxiNQ54TsUs0EQ71JNsa5f70zVf1LmDvON1CXc=
-Address = 10.8.0.4/32
-DNS = 1.1.1.1
-
-
-[Peer]
-PublicKey = 6uZg6T0J1bHuEmdqPx8OmxQ2ebBJ8TnVpnCdV8jHliQ=
-PresharedKey = As6JiXcYcqwjSHxSOrmQT13uGVlBG90uXZWmtaezZVs=
-AllowedIPs = 0.0.0.0/0, ::/0
-PersistentKeepalive = 0
-Endpoint = 38.180.13.85:51820''';
-```
-
-For more info on the configuration data, see [the documentation](https://man7.org/linux/man-pages/man8/wg-quick.8.html) with examples.
-
-### Connect
-
-After initializing, connect using `startVpn`:
-
-```dart
-await wireguard.startVpn(
-  serverAddress: address, // the server address (e.g 'demo.wireguard.com:51820')
-  wgQuickConfig: conf, // the quick-config file
-  providerBundleIdentifier: 'com.example', // your app identifier
-);
-```
-
-### Disconnect
-
-After connecting, disconnect using `stopVpn`:
-
-```dart
-await wireguard.stopVpn();
-```
-
-### Stage
-
-Listen to stage change using `vpnStageSnapshot`:
-
-```dart
-wireguard.vpnStageSnapshot.listen((event) {
-  debugPrint("status changed $event");
-});
-```
-
-Or get the current stage using `getStage`:
-
-```dart
-final stage = await wireguard.stage();
-```
-
-The available stages are:
-
-| Code | Description |
-| ---- | ----------- |
-| connecting | The interface is connecting |
-| connected | The interface is connected |
-| disconnecting | The interface is disconnecting |
-| disconnected | The interface is disconnected |
-| waitingConnection | Waiting for a user interaction |
-| authenticating | Authenticating with the server |
-| reconnect | Reconnecting the the interface |
-| noConnection | Any connection has not been made |
-| preparing | Preparing to connect |
-| denied | The connection has been denied by the system, usually by refused permissions |
-| exiting | Exiting the interface |
-
-## Supported Platforms
-
-|             | Android | iOS   | macOS | Windows | Linux |
-| ----------- | ------- | ----- | ----- | ------- | ----- |
-| **Version** | SDK 21+ | 15.0+ | 12+   | 7+      | Any   |
-
+1. Open your project in Xcode.
+2. File > New > Target > **Network Extension**.
+3. Name it (e.g., `WGExtension`) and ensure "Packet Tunnel Provider" is selected.
+4. Set the **Bundle Identifier** (e.g., `com.example.app.WGExtension`). *You will use this ID in your Dart code.*
+5. Ensure both your Main App and the Extension have the same **App Group** capability enabled.
 
 ### Windows
 
-On Windows, the app must be run as administrator to be able to create and manipulate the tunnel. To debug the app, run `flutter run` from an elevated command prompt. To run the app normally, the system will request your app to be run as administrator. No code changes or external dependencies are required.
+The application must be run as **Administrator** to create and manipulate the network tunnel.
+
+* **Debug:** Run your IDE or terminal as Administrator.
+* **Release:** The system will prompt the user for permission automatically.
 
 ### Linux
 
-#### Install dependencies
-
-The required dependencies need to be installed: `wireguard` and `wireguard-tools`.
-
-On Ubuntu/Debian, use the following command to install the dependencies:
+Requires `wireguard` and `wireguard-tools` installed on the system.
 
 ```bash
+# Ubuntu/Debian
 sudo apt install wireguard wireguard-tools openresolv
+
 ```
 
-For other Linux distros, see [this](https://www.wireguard.com/install/).
-
-> [!NOTE]  
-> 
-> If `openresolv` is not installed in the system, configuration files with a DNS provided may not connect. See [this issue](#linux-error-resolvconf-command-not-found) for more information.
-
-#### Initializing
-
-When `wireguard.initialize` is called, the application will request your user password (`[sudo] password for <user>:`). This is necessary because wireguard must run as a root to be able to create AND manipulate the tunnels. This is true for either debug and release modes or a distributed executable.
-
-> [!CAUTION]
->
-> Do not run the app in root mode (e.g `sudo ./executable`, `sudo flutter run`), otherwise the connection will not be established.
-
-## FAQ & Troubleshooting
-
-### Linux error `resolvconf: command not found`
-
-On Linux, you may receive the error `resolvconf: command not found`. This is because wireguard tried to adjust the nameserver. Make sure to install `openresolv` or not provide the "DNS" field.
+> **Note:** If `openresolv` is not installed, DNS configurations may fail.
 
 ---
 
-"WireGuard" is a registered trademark of Jason A. Donenfeld.
+## Usage
 
-Fork from [mysteriumnetwork](https://github.com/mysteriumnetwork/wireguard_dart/) tunnel.
+### 1. Initialize
 
-Many Thanks for [Bruno D'Luka](https://github.com/bdlukaa) for help me.
+Initialize the instance. You can provide a custom name for the VPN interface.
 
+```dart
+import 'package:wireguard_flutter_plus/wireguard_flutter_plus.dart';
 
-// SPDX-License-Identifier: MIT
-// Copyright © 2018-2023 WireGuard LLC. All Rights Reserved.
+final wireguard = WireGuardFlutter.instance;
 
-#include <sys/types.h>
-#include "key.h"
-#include "x25519.h"
+void initVpn() async {
+  await wireguard.initialize(
+    interfaceName: 'wg0',
+    vpnName: "Orban VPN", // Visible Name in Settings/Notifications
+  );
+}
 
-/* From <sys/kern_control.h> */
-#define CTLIOCGINFO 0xc0644e03UL
-struct ctl_info {
-    u_int32_t   ctl_id;
-    char        ctl_name[96];
-};
-struct sockaddr_ctl {
-    u_char      sc_len;
-    u_char      sc_family;
-    u_int16_t   ss_sysaddr;
-    u_int32_t   sc_id;
-    u_int32_t   sc_unit;
-    u_int32_t   sc_reserved[5];
-};
+```
+
+### 2. Prepare Configuration
+
+Prepare your WireGuard `.conf` string.
+
+```dart
+const String conf = '''
+[Interface]
+PrivateKey = <YOUR_PRIVATE_KEY>
+Address = 10.104.0.224/32
+DNS = 1.1.1.1, 8.8.8.8
+
+[Peer]
+PublicKey = <PEER_PUBLIC_KEY>
+Endpoint = 147.135.15.16:443
+AllowedIPs = 0.0.0.0/0, ::/0
+PersistentKeepalive = 25
+''';
+
+```
+
+### 3. Connect
+
+Start the VPN tunnel.
+
+```dart
+void connect() async {
+  await wireguard.startVpn(
+    serverAddress: '147.135.15.16:443', // Required for reachability checks
+    wgQuickConfig: conf, 
+    providerBundleIdentifier: 'com.example.WGExtension', // iOS/macOS Extension Bundle ID
+  );
+}
+
+```
+
+### 4. Disconnect
+
+```dart
+void disconnect() async {
+  await wireguard.stopVpn();
+}
+
+```
+
+### 5. Listen to Status & Traffic
+
+Monitor connection state and real-time traffic usage.
+
+**Connection Status:**
+
+```dart
+wireguard.vpnStageSnapshot.listen((event) {
+  print("VPN Status Changed: $event");
+});
+
+```
+
+**Traffic Statistics:**
+
+```dart
+wireguard.trafficSnapshot.listen((data) {
+  print("Download Speed: ${data["downloadSpeed"]}");
+  print("Upload Speed: ${data["uploadSpeed"]}");
+  print("Total Download: ${data["totalDownload"]}");
+  print("Total Upload: ${data["totalUpload"]}");
+});
+
+```
+
+---
+
+## VPN Stages
+
+| Stage | Description |
+| --- | --- |
+| `connecting` | The interface is attempting to connect. |
+| `connected` | The tunnel is successfully established. |
+| `disconnecting` | The interface is in the process of closing. |
+| `disconnected` | The interface is completely stopped. |
+| `waitingConnection` | Waiting for user interaction (e.g., permission dialog). |
+| `authenticating` | Authenticating with the server. |
+| `reconnect` | Attempting to reconnect automatically. |
+| `denied` | Permission refused by the user or system. |
+
+## Supported Platforms
+
+| Platform | Version | Notes |
+| --- | --- | --- |
+| **Android** | SDK 21+ | Supports 16KB Page Size (API 35+) |
+| **iOS** | 15.0+ | Requires Network Extension |
+| **macOS** | 12.0+ | Requires Network Extension & App Sandbox |
+| **Windows** | 7+ | Requires Admin Privileges |
+| **Linux** | Any | Requires `wireguard-tools` |
+
+## FAQ & Troubleshooting
+
+**Linux: `resolvconf: command not found**`
+This error occurs when WireGuard tries to apply DNS settings but cannot find the tool to manage them.
+
+* **Fix:** Install `openresolv` via your package manager, or remove the `DNS` line from your configuration.
+
+**Linux: Password Prompt**
+When `initialize` is called, the app may ask for the user password (`[sudo] password for <user>:`). This is required because WireGuard needs root privileges to create network interfaces.
+
+* **Caution:** Do not run the Flutter app itself as root (e.g., do NOT use `sudo flutter run`). Run the app normally and let it request permissions via the prompt.
+
+---
+
+*"WireGuard" is a registered trademark of Jason A. Donenfeld.*
+
+```
+
+```
