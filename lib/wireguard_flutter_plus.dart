@@ -37,8 +37,12 @@ class WireGuardFlutter extends WireGuardFlutterInterface {
   Stream<Map<String, dynamic>> get trafficSnapshot => _instance.trafficSnapshot;
 
   @override
-  Future<void> initialize({required String interfaceName, String? vpnName}) {
-    return _instance.initialize(interfaceName: interfaceName, vpnName: vpnName);
+  Future<void> initialize(
+      {required String interfaceName, String? vpnName, String? iosAppGroup}) {
+    return _instance.initialize(
+        interfaceName: interfaceName,
+        vpnName: vpnName,
+        iosAppGroup: iosAppGroup);
   }
 
   @override

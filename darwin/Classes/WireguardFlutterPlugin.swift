@@ -46,6 +46,9 @@ public class WireguardFlutterPlugin: NSObject, FlutterPlugin {
                     result(FlutterError(code: "-3", message: "localizedDescription content empty or null", details: nil))
                     return
                 }
+                if let groupId = (call.arguments as? [String: Any])?["groupId"] as? String {
+                  TrafficStreamHandler.shared.configure(groupId: groupId)
+                }
                 WireguardFlutterPlugin.utils.localizedDescription = localizedDescription
                 WireguardFlutterPlugin.utils.loadProviderManager { err in
                     if err == nil {
@@ -95,8 +98,12 @@ class TrafficStreamHandler: NSObject, FlutterStreamHandler {
     private var lastDownload: Int64 = 0
     private var lastUpload: Int64 = 0
 
-      // Use your app group ID for shared UserDefaults
-    private let defaults = UserDefaults(suiteName: "group.com.orbanvpn.wireguard") 
+    // Use your app group ID for shared UserDefaults
+    private var defaults: UserDefaults?
+    
+    func configure(groupId: String) {
+        defaults = UserDefaults(suiteName: groupId)
+    } 
 
     func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
          print("Flutter subscribed to traffic events")
@@ -111,35 +118,6 @@ class TrafficStreamHandler: NSObject, FlutterStreamHandler {
         return nil
     }
 
-    //  func startMonitoring() {
-    //      guard timer == nil else { return } // Prevent duplicate timers
-    //     lastDownload = 0
-    //     lastUpload = 0
-    //     timer?.cancel()
-    //     timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .background))
-    //     timer?.schedule(deadline: .now(), repeating: .seconds(1))
-    //     timer?.setEventHandler { [weak self] in
-    //         guard let self = self,
-    //               let stats = WireguardFlutterPlugin.utils.getTrafficStats() else { return }
-    //         let download = Int64((stats["totalDownload"] as? Double ?? 0) * 1024)
-    //         let upload = Int64((stats["totalUpload"] as? Double ?? 0) * 1024)
-    //         let downloadSpeed = download - self.lastDownload
-    //         let uploadSpeed = upload - self.lastUpload
-    //         self.lastDownload = download
-    //         self.lastUpload = upload
-    //         let traffic: [String: Any] = [
-    //             "downloadSpeed": downloadSpeed,
-    //             "uploadSpeed": uploadSpeed,
-    //             "totalDownload": download,
-    //             "totalUpload": upload,
-    //             "duration": stats["duration"] ?? "00:00:00"
-    //         ]
-    //         DispatchQueue.main.async {
-    //             self.eventSink?(traffic)
-    //         }
-    //     }
-    //     timer?.resume()
-    // }
 
 
     func startMonitoring() {

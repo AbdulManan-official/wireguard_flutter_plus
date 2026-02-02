@@ -4,7 +4,8 @@ abstract class WireGuardFlutterInterface {
   Future<Map<String, dynamic>> trafficStats() =>
       trafficSnapshot.firstWhere((_) => true);
 
-  Future<void> initialize({required String interfaceName, String? vpnName});
+  Future<void> initialize(
+      {required String interfaceName, String? vpnName, String? iosAppGroup});
 
   Future<void> startVpn({
     required String serverAddress,

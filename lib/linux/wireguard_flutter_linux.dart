@@ -23,7 +23,9 @@ class WireGuardFlutterLinux extends WireGuardFlutterInterface {
 
   @override
   Future<void> initialize(
-      {required String interfaceName, String? vpnName}) async {
+      {required String interfaceName,
+      String? vpnName,
+      String? iosAppGroup}) async {
     name = interfaceName.replaceAll(' ', '_');
     tunnelName = interfaceName; // ✅ Assign tunnelName
     await refreshStage();

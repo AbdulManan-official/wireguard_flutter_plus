@@ -1,3 +1,8 @@
+## 1.0.1
+* Added dynamic iOS App Group ID support.
+* Updated iOS setup documentation.
+* Renamed example to standard 'example' directory.
+
 ## 0.1.0
 
 * Fixed android connection state.

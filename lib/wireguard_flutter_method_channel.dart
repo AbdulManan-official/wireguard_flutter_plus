@@ -40,12 +40,15 @@ class WireGuardFlutterMethodChannel extends WireGuardFlutterInterface {
       });
 
   @override
-  Future<void> initialize({required String interfaceName, String? vpnName}) {
+  @override
+  Future<void> initialize(
+      {required String interfaceName, String? vpnName, String? iosAppGroup}) {
     return _methodChannel.invokeMethod("initialize", {
       "localizedDescription": interfaceName,
       "win32ServiceName": interfaceName,
       "vpnName": vpnName ??
           "WireGuard VPN", // Default to "WireGuard VPN" if not provided
+      "groupId": iosAppGroup
     });
   }
 

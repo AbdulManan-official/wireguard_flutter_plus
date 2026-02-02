@@ -29,6 +29,8 @@ flutter pub add wireguard_flutter_plus
 ## Platform Configuration
 
 ### iOS & macOS
+> [!IMPORTANT]
+> **Detailed iOS Setup Guide**: Please read [ios_setup_readme.md](ios_setup_readme.md) for step-by-step instructions on setting up Network Extensions and App Groups.
 
 To use WireGuard on Apple platforms, you must create a **Network Extension** target in Xcode.
 
