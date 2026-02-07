@@ -36,16 +36,18 @@ class _MyAppState extends State<MyApp> {
   StreamSubscription? _vpnStatusSubscription;
   StreamSubscription? _vpnTraffic;
   var _config = TextEditingController(
-    text: '''[Interface]
-PrivateKey = +J0GRTgbvFWolFnFphZki0K0hOWCcs67JsVEl+lMcno=
-Address = 10.104.0.224/32
+    text: '''
+[Interface]
+PrivateKey = MDYozik16VlvjEBEbT1vybGD30UWLYcxDjHjKwJ9U3c=
+Address = 10.104.1.26/32
 DNS = 1.1.1.1, 8.8.8.8
 
 [Peer]
-PublicKey = YLaLJahXZ6NuASXQLPl0eUPVAypirpaLuuO7tZa2bmo=
-Endpoint = 147.135.15.16:443
+PublicKey = Rn6w1t6actF9XC0bMIXxO25rf31uFqm2/n5sYyK1UzQ=
+Endpoint = 147.135.37.178:443
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
+
  ''',
   );
 
@@ -96,6 +98,7 @@ PersistentKeepalive = 25
       await wireguard.initialize(
         interfaceName: "wg_vpn",
         vpnName: "Orban VPN", // Custom VPN name for notification
+        iosAppGroup: "group.com.orbanvpn.wireguard.WGExtension",
       );
       debugPrint("initialize success 'wg_vpn' with custom name 'Orban VPN'");
     } catch (error, stack) {

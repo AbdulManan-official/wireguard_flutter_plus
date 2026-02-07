@@ -30,31 +30,63 @@ You need two Bundle IDs: one for the main app and one for the extension.
 6. **Provider Type**: Packet Tunnel Provider.
 7. Click **Finish** and **Activate** the scheme if prompted.
 
-## Step 4: Setup Dependencies (Critical)
+## Step 4: Setup WireGuardGoBridge (External Build System)
 
-1. **WireGuardKitGo**:
-   - Download the [wireguard-apple](https://github.com/aakashch0179/wireguard-apple) repository.
-   - Replace the `WireGuardKitGo` directory in your project with the one from the downloaded repository.
+This step compiles the Go code into a static library (`libwg-go.a`) that your extension can link against.
 
-2. **Add Target Dependency**:
-   - Select the **WGExtension** target.
-   - Go to the **Build Phases** tab.
-   - In **Target Dependencies**, click `+` and select **WireGuardGoBridgeiOS**.
+### For iOS:
+1.  **File > New > Target**.
+2.  Go to the **Other** tab and select **External Build System**.
+3.  Click **Next**.
+4.  **Product Name**: `WireGuardGoBridgeiOS`.
+5.  **Build Tool**: `$(PROJECT_DIR)/Scripts/build_go_bridge.sh`
+6.  Click **Finish**.
 
-3. **Configure Go Path**:
-   - Ensure you have Go installed (`brew install go` or download from golang.org).
-   - Go to **Build Settings** for **BOTH** the `Runner` and `WGExtension` targets.
-   - Click `+` to add a **User-Defined Setting**.
-   - Key: `PATH`
-   - Value: `${PATH}:/usr/local/go/bin` (or the path to your Go bin folder).
+### For macOS:
+1.  **File > New > Target**.
+2.  Go to the **Other** tab and select **External Build System**.
+3.  Click **Next**.
+4.  **Product Name**: `WireGuardGoBridge`.
+5.  **Build Tool**: `/usr/bin/make`
+6.  Click **Finish**.
+7.  Select the `WireGuardGoBridge` target -> **Info** tab.
+8.  **Directory**: `$(PROJECT_DIR)/WireGuardKitGo`
+9.  **Pass build settings in environment**: Checked.
 
-4. **Disable Sandboxing (If Enabled)**:
-   - For `WGExtension`, `WireGuardGoBridgeiOS`, and `Runner` targets:
-   - Go to **Build Settings**.
-   - Search for `ENABLE_USER_SCRIPT_SANDBOXING`.
-   - Set it to **NO**.
+---
 
-## Step 5: Enable Capabilities
+## Step 5: Setup Dependencies (Critical)
+
+1.  **WireGuardKitGo**:
+    - Download the [wireguard-apple](https://github.com/aakashch0179/wireguard-apple) repository.
+    - Replace the `WireGuardKitGo` directory in your project with the one from the downloaded repository.
+
+2.  **Add Target Dependency**:
+    - Select the **WGExtension** target.
+    - Go to the **Build Phases** tab.
+    - In **Target Dependencies**, click `+` and select **WireGuardGoBridgeiOS** (for iOS) or **WireGuardGoBridge** (for macOS).
+
+3.  **Link Binary With Libraries**:
+    - Still in **WGExtension** > **Build Phases**.
+    - Expand **Link Binary With Libraries**.
+    - Click `+` -> **Add Other...** -> **Add Files...**
+    - Navigate to the `WireGuardKitGo` directory (or wherever the output `libwg-go.a` is located, usually `out/libwg-go.a` after a build).
+    - **Note**: You might need to build the `WireGuardGoBridge` target once first to generate the `.a` file so you can select it.
+
+4.  **Configure Go Path**:
+    - Ensure you have Go installed (`brew install go` or download from golang.org).
+    - Go to **Build Settings** for **BOTH** the `Runner` and `WGExtension` targets.
+    - Click `+` to add a **User-Defined Setting**.
+    - Key: `PATH`
+    - Value: `${PATH}:/usr/local/go/bin` (or the path to your Go bin folder).
+
+5.  **Disable Sandboxing (If Enabled)**:
+    - For `WGExtension`, `WireGuardGoBridgeiOS`, and `Runner` targets:
+    - Go to **Build Settings**.
+    - Search for `ENABLE_USER_SCRIPT_SANDBOXING`.
+    - Set it to **NO**.
+
+## Step 6: Enable Capabilities
 
 ### for Main App (Runner) target:
 1. Select the **Runner** target.
@@ -70,12 +102,12 @@ You need two Bundle IDs: one for the main app and one for the extension.
    - **Network Extensions**: Check `Packet Tunnel`.
    - **App Groups**: **CRITICAL**: Add the **SAME** App Group ID as the main app and **Check the box.**
 
-## Step 6: Fix Build Order (Optional but Recommended)
+## Step 7: Fix Build Order (Optional but Recommended)
 
 1. Open the **Runner** target > **Build Phases** tab.
 2. Move **Embed Foundation Extensions** to the bottom of the list (after Copy Bundle Resources).
 
-## Step 7: Flutter Initialization
+## Step 8: Flutter Initialization
 
 Pass your App Group ID to the `initialize` method in your Flutter code.
 
@@ -88,7 +120,7 @@ await wireGuard.initialize(
 
 **Note:** If `iosAppGroup` is not provided, the plugin will default to 'group.com.orbanvpn.wireguard', which will likely NOT match your provisioning profile and will cause the connection to fail.
 
-## Step 8: Connect
+## Step 9: Connect
 
 When starting the VPN, pass your extension's Bundle ID:
 
@@ -100,7 +132,7 @@ await wireGuard.startVpn(
 );
 ```
 
-## Step 9: Implement PacketTunnelProvider
+## Step 10: Implement PacketTunnelProvider
 
 Replace the contents of your `PacketTunnelProvider.swift` file (created in Step 3/8) with the following code.
 **IMPORTANT**: This code handles the WireGuard connection and traffic statistics reporting.

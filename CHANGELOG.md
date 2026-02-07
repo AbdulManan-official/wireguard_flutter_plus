@@ -1,3 +1,8 @@
+## 1.0.2
+* Improve package description.
+* Update dependencies.
+* Add API documentation.
+
 ## 1.0.1
 * Added dynamic iOS App Group ID support.
 * Updated iOS setup documentation.
