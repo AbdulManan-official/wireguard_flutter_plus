@@ -16,7 +16,7 @@ project(${PROJECT_NAME} LANGUAGES CXX)
 
 # This value is used when generating builds using this plugin, so it must
 # not be changed
-set(PLUGIN_NAME "wireguard_flutter_plugin")
+set(PLUGIN_NAME "wireguard_flutter_plus_plugin")
 
 # Any new source files that you add to the plugin should be added here.
 list(APPEND PLUGIN_SOURCES
@@ -33,7 +33,7 @@ list(APPEND PLUGIN_SOURCES
 # Define the plugin library target. Its name must not be changed (see comment
 # on PLUGIN_NAME above).
 add_library(${PLUGIN_NAME} SHARED
-  "include/wireguard_flutter/wireguard_flutter_plugin_c_api.h"
+  "include/wireguard_flutter_plus/wireguard_flutter_plugin_c_api.h"
   "wireguard_flutter_plugin_c_api.cpp"
   ${PLUGIN_SOURCES}
 )
@@ -53,7 +53,7 @@ target_compile_definitions(${PLUGIN_NAME} PRIVATE FLUTTER_PLUGIN_IMPL)
 # Source include directories and library dependencies. Add any plugin-specific
 # dependencies here.
 add_subdirectory(external)
-target_link_libraries(${PLUGIN_NAME} PRIVATE base64)
+target_link_libraries(${PLUGIN_NAME} PRIVATE base64 iphlpapi)
 
 add_compile_definitions(WIN32_LEAN_AND_MEAN) # for Wireguard winsock/windows conflict
 
@@ -83,7 +83,7 @@ target_link_libraries(${PLUGIN_NAME} PRIVATE flutter flutter_wrapper_plugin)
 # List of absolute paths to libraries that should be bundled with the plugin.
 # This list could contain prebuilt libraries, or libraries created by an
 # external build triggered from this build file.
-set(wireguard_flutter_bundled_libraries
+set(wireguard_flutter_plus_bundled_libraries
   "${CMAKE_CURRENT_SOURCE_DIR}/lib/wireguard/amd64/wireguard.dll"
   "${CMAKE_CURRENT_SOURCE_DIR}/lib/tunnel/amd64/tunnel.dll"
   "${CMAKE_CURRENT_SOURCE_DIR}/lib/wireguard_svc/amd64/wireguard_svc.exe"

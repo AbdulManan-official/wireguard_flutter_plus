@@ -30,6 +30,7 @@ class ServiceControl {
   void RegisterListener(std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> &&events);
   void UnregisterListener();
   void EmitState(std::string state);
+  int64_t GetServiceStartTime();
 };
 
 }  // namespace wireguard_flutter

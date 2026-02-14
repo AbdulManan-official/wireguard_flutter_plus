@@ -42,6 +42,21 @@ namespace wireguard_flutter
         std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> &&events);
     std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> OnCancel(
         const flutter::EncodableValue *arguments);
+
+    std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> traffic_events_;
+    std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> OnTrafficListen(
+        const flutter::EncodableValue *arguments,
+        std::unique_ptr<flutter::EventSink<flutter::EncodableValue>> &&events);
+    std::unique_ptr<flutter::StreamHandlerError<flutter::EncodableValue>> OnTrafficCancel(
+        const flutter::EncodableValue *arguments);
+
+    void ProcessTrafficStats();
+    static void CALLBACK TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime);
+
+    UINT_PTR timer_id_ = 0;
+    unsigned long long last_rx_ = 0;
+    unsigned long long last_tx_ = 0;
+    unsigned long long start_time_ = 0;
   };
 
 } // namespace wireguard_flutter

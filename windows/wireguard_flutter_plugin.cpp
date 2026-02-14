@@ -7,9 +7,14 @@
 #include <flutter/event_channel.h>
 #include <flutter/event_stream_handler.h>
 #include <flutter/event_stream_handler_functions.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#include <iphlpapi.h>
+#include <netioapi.h>
+#include <windows.h>
+
 #include <flutter/encodable_value.h>
 #include <libbase64.h>
-#include <windows.h>
 
 #include <memory>
 #include <sstream>
@@ -53,17 +58,146 @@ namespace wireguard_flutter
 
     eventChannel->SetStreamHandler(move(eventsHandler));
 
+    auto trafficEventChannel = make_unique<EventChannel<EncodableValue>>(
+        registrar->messenger(), "orban.group.wireguard_flutter_plus/traffic", &StandardMethodCodec::GetInstance());
+
+    auto trafficEventsHandler = make_unique<StreamHandlerFunctions<EncodableValue>>(
+        [plugin_pointer = plugin.get()](
+            const EncodableValue *arguments,
+            unique_ptr<EventSink<EncodableValue>> &&events)
+            -> unique_ptr<StreamHandlerError<EncodableValue>>
+        {
+          return plugin_pointer->OnTrafficListen(arguments, move(events));
+        },
+        [plugin_pointer = plugin.get()](const EncodableValue *arguments)
+            -> unique_ptr<StreamHandlerError<EncodableValue>>
+        {
+          return plugin_pointer->OnTrafficCancel(arguments);
+        });
+
+    trafficEventChannel->SetStreamHandler(move(trafficEventsHandler));
+
     registrar->AddPlugin(move(plugin));
   }
 
-  WireguardFlutterPlugin::WireguardFlutterPlugin() {}
+  static WireguardFlutterPlugin* g_plugin_instance = nullptr;
 
-  WireguardFlutterPlugin::~WireguardFlutterPlugin() {}
+  WireguardFlutterPlugin::WireguardFlutterPlugin() {
+    g_plugin_instance = this;
+  }
+
+  WireguardFlutterPlugin::~WireguardFlutterPlugin() {
+    if (g_plugin_instance == this) {
+      g_plugin_instance = nullptr;
+    }
+  }
+
+  void CALLBACK WireguardFlutterPlugin::TimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
+      if (g_plugin_instance) {
+          g_plugin_instance->ProcessTrafficStats();
+      }
+  }
+
+  void WireguardFlutterPlugin::ProcessTrafficStats() {
+      if (!traffic_events_) {
+          // std::cout << "Traffic events sink is null" << std::endl;
+          return;
+      }
+
+      auto tunnel_service = this->tunnel_service_.get();
+      if (!tunnel_service) {
+         // std::cout << "Tunnel service is null" << std::endl;
+         return;
+      }
+
+      std::wstring service_name_wide = tunnel_service->service_name_;
+      
+      NET_LUID luid;
+      if (ConvertInterfaceAliasToLuid(service_name_wide.c_str(), &luid) != NO_ERROR) {
+          // Fallback: Try WireGuardTunnel$NAME
+          std::wstring fallback_name = L"WireGuardTunnel$" + service_name_wide;
+          if (ConvertInterfaceAliasToLuid(fallback_name.c_str(), &luid) != NO_ERROR) {
+          //   std::cout << "Failed to convert alias to LUID for service: " << WideToUtf8(service_name_wide) << " or " << WideToUtf8(fallback_name) << std::endl;
+            
+          //   // List all interfaces to debug (only once every 10 seconds to avoid spam)
+          //   static DWORD last_print = 0;
+          //   if (GetTickCount() - last_print > 10000) {
+          //       last_print = GetTickCount();
+          //       PMIB_IF_TABLE2 pIfTable;
+          //       if (GetIfTable2(&pIfTable) == NO_ERROR) {
+          //           std::cout << "Available Interfaces:" << std::endl;
+          //           for (ULONG i = 0; i < pIfTable->NumEntries; i++) {
+          //               std::cout << " - " << WideToUtf8(pIfTable->Table[i].Alias) << std::endl;
+          //           }
+          //           FreeMibTable(pIfTable);
+          //       } else {
+          //           std::cout << "Failed to list interfaces" << std::endl;
+          //       }
+          //   }
+            return;
+          } else {
+             // std::cout << "Found LUID using fallback name: " << WideToUtf8(fallback_name) << std::endl;
+          }
+      }
+
+      MIB_IF_ROW2 row;
+      SecureZeroMemory(&row, sizeof(MIB_IF_ROW2));
+      row.InterfaceLuid = luid;
+      
+      if (GetIfEntry2(&row) != NO_ERROR) {
+          // std::cout << "Failed to get interface entry for LUID" << std::endl;
+          return;
+      }
+
+      unsigned long long current_rx = row.InOctets;
+      unsigned long long current_tx = row.OutOctets;
+
+      unsigned long long download_speed = (current_rx >= last_rx_) ? (current_rx - last_rx_) : 0;
+      unsigned long long upload_speed = (current_tx >= last_tx_) ? (current_tx - last_tx_) : 0;
+
+      // Filter out huge spikes (e.g., initial read)
+      if (last_rx_ == 0 && last_tx_ == 0) {
+          download_speed = 0;
+          upload_speed = 0;
+      }
+
+      // std::cout << "Traffic Stats - DL: " << download_speed << ", UL: " << upload_speed 
+      //           << ", TotalDL: " << current_rx << ", TotalUL: " << current_tx << std::endl;
+
+      last_rx_ = current_rx;
+      last_tx_ = current_tx;
+
+      unsigned long long duration_seconds = 0;
+      if (start_time_ > 0) {
+          unsigned long long now = GetTickCount64();
+          if (now >= start_time_) {
+              duration_seconds = (now - start_time_) / 1000;
+          }
+      }
+
+      // Format duration HH:MM:SS
+      char duration_str[32];
+      sprintf_s(duration_str, "%02llu:%02llu:%02llu", 
+          duration_seconds / 3600, 
+          (duration_seconds % 3600) / 60, 
+          duration_seconds % 60);
+
+      flutter::EncodableMap map;
+      map[flutter::EncodableValue("downloadSpeed")] = flutter::EncodableValue((int64_t)download_speed);
+      map[flutter::EncodableValue("uploadSpeed")] = flutter::EncodableValue((int64_t)upload_speed);
+      map[flutter::EncodableValue("totalDownload")] = flutter::EncodableValue((int64_t)current_rx);
+      map[flutter::EncodableValue("totalUpload")] = flutter::EncodableValue((int64_t)current_tx);
+      map[flutter::EncodableValue("duration")] = flutter::EncodableValue(std::string(duration_str));
+
+      traffic_events_->Success(flutter::EncodableValue(map));
+  }
 
   void WireguardFlutterPlugin::HandleMethodCall(const MethodCall<EncodableValue> &call,
                                                 unique_ptr<MethodResult<EncodableValue>> result)
   {
     const auto *args = get_if<EncodableMap>(call.arguments());
+
+    // std::cout << "HandleMethodCall: " << call.method_name() << std::endl;
 
     if (call.method_name() == "initialize")
     {
@@ -88,6 +222,7 @@ namespace wireguard_flutter
     }
     else if (call.method_name() == "start")
     {
+      // std::cout << "Method 'start' called" << std::endl;
       auto tunnel_service = this->tunnel_service_.get();
       if (tunnel_service == nullptr)
       {
@@ -106,10 +241,13 @@ namespace wireguard_flutter
       wstring wg_config_filename;
       try
       {
-        wg_config_filename = WriteConfigToTempFile(*wgQuickConfig);
+        // std::cout << "Writing config file..." << std::endl;
+        wg_config_filename = WriteConfigToTempFile(*wgQuickConfig, WideToUtf8(tunnel_service->service_name_));
+        // std::cout << "Config file writen: " << WideToUtf8(wg_config_filename) << std::endl; // Debug log
       }
       catch (exception &e)
       {
+        // std::cout << "Failed to write config: " << e.what() << std::endl;
         this->tunnel_service_->EmitState("no_connection");
         result->Error(string("Could not write wireguard config: ").append(e.what()));
         return;
@@ -123,7 +261,7 @@ namespace wireguard_flutter
       service_exec_builder << current_exec_dir << "\\wireguard_svc.exe" << L" -service"
                            << L" -config-file=\"" << wg_config_filename << "\"";
       wstring service_exec = service_exec_builder.str();
-      cout << "Starting service with command line: " << WideToAnsi(service_exec) << endl;
+      // cout << "Starting service with command line: " << WideToUtf8(service_exec) << endl; // Use WideToUtf8
       try
       {
         CreateArgs csa;
@@ -133,9 +271,15 @@ namespace wireguard_flutter
         csa.first_time = true;
 
         tunnel_service->CreateAndStart(csa);
+        
+        // Timer logic: Reset start time and traffic counters on successful start
+        start_time_ = GetTickCount64();
+        last_rx_ = 0;
+        last_tx_ = 0;
       }
       catch (exception &e)
       {
+        // std::cout << "Failed to start service: " << e.what() << std::endl;
         result->Error(string(e.what()));
         return;
       }
@@ -155,6 +299,11 @@ namespace wireguard_flutter
       try
       {
         tunnel_service->Stop();
+        
+        // Timer logic: Reset start time on stop
+        start_time_ = 0;
+        last_rx_ = 0;
+        last_tx_ = 0;
       }
       catch (exception &e)
       {
@@ -169,11 +318,11 @@ namespace wireguard_flutter
       auto tunnel_service = this->tunnel_service_.get();
       if (tunnel_service == nullptr)
       {
-        result->Error("Invalid state: call 'initialize' first");
+        result->Success(EncodableValue("disconnected"));
         return;
       }
 
-      result->Success(tunnel_service->GetStatus());
+      result->Success(EncodableValue(tunnel_service->GetStatus()));
       return;
     }
 
@@ -208,5 +357,45 @@ namespace wireguard_flutter
 
     return nullptr;
   }
+
+  unique_ptr<StreamHandlerError<EncodableValue>> WireguardFlutterPlugin::OnTrafficListen(
+      const EncodableValue *arguments,
+      unique_ptr<EventSink<EncodableValue>> &&events)
+  {
+    traffic_events_ = move(events);
+    last_rx_ = 0;
+    last_tx_ = 0;
+    
+    // Check if valid start time can be retrieved
+    if (this->tunnel_service_) {
+       int64_t service_start = this->tunnel_service_->GetServiceStartTime();
+       if (service_start > 0) {
+           start_time_ = service_start;
+       } else {
+           // If service is not running or can't get time, ensure start_time is 0
+           // But if we just started via 'start' method, start_time_ might be set already?
+           // Actually OnTrafficListen is traffic snapshot subscription.
+           // If we are already connected, we want to restore start_time_.
+           if (start_time_ == 0) start_time_ = 0; 
+       }
+    }
+
+    // Start timer with 1000ms interval
+    timer_id_ = SetTimer(NULL, 0, 1000, &WireguardFlutterPlugin::TimerProc);
+    
+    return nullptr;
+  }
+
+  unique_ptr<StreamHandlerError<EncodableValue>> WireguardFlutterPlugin::OnTrafficCancel(
+      const EncodableValue *arguments)
+  {
+    if (timer_id_) {
+        KillTimer(NULL, timer_id_);
+        timer_id_ = 0;
+    }
+    traffic_events_ = nullptr;
+    return nullptr;
+  }
+
 
 } // namespace wireguard_flutter

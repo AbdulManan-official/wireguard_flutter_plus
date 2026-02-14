@@ -1,16 +1,22 @@
 import 'dart:async';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:wireguard_flutter_plus/wireguard_flutter_plus.dart';
 
-void main() {
+import 'ui/theme.dart';
+import 'ui/widgets/connection_button.dart';
+import 'ui/widgets/stats_grid.dart';
+import 'ui/widgets/config_input.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   runApp(
     MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(title: const Text('WireGuard Example App')),
-        body: const MyApp(),
-      ),
+      title: 'WireGuard Flutter',
+      theme: AppTheme.darkTheme,
+      home: const MyApp(),
+      debugShowCheckedModeBanner: false,
     ),
   );
 }
@@ -25,17 +31,17 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   final wireguard = WireGuardFlutter.instance;
 
-  String downloadCount = "0.0";
-  String uploadCount = "0.0";
-  String totalDownload = "0";
-  String totalUpload = "0";
+  String downloadCount = "0.0 B/s";
+  String uploadCount = "0.0 B/s";
+  String totalDownload = "0 B";
+  String totalUpload = "0 B";
   String duration = "00:00:00";
 
   String vpnState = VpnEngine.vpnDisconnected;
-
   StreamSubscription? _vpnStatusSubscription;
   StreamSubscription? _vpnTraffic;
-  var _config = TextEditingController(
+
+  final _config = TextEditingController(
     text: '''
 [Interface]
 PrivateKey = MDYozik16VlvjEBEbT1vybGD30UWLYcxDjHjKwJ9U3c=
@@ -47,47 +53,46 @@ PublicKey = Rn6w1t6actF9XC0bMIXxO25rf31uFqm2/n5sYyK1UzQ=
 Endpoint = 147.135.37.178:443
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
-
  ''',
   );
 
   @override
   void initState() {
     super.initState();
-    debugPrint("HomeController initialized");
-    Future.delayed(Duration(milliseconds: 500), () {
-      // Always listen to traffic snapshot (subscribe only once)
+    initialize();
+
+    Future.delayed(const Duration(milliseconds: 500), () {
       _vpnTraffic = wireguard.trafficSnapshot.listen((data) {
-        debugPrint("Traffic data received: $data");
-        downloadCount = data["downloadSpeed"].toString();
-        uploadCount = data["uploadSpeed"].toString();
-        totalDownload = data["totalDownload"].toString();
-        totalUpload = data["totalUpload"].toString();
-        duration = data["duration"].toString();
-        setState(() {
-          debugPrint("Updated traffic data: $downloadCount, $uploadCount");
-        });
+        if (mounted) {
+          setState(() {
+            downloadCount =
+                formatSpeed(double.parse(data["downloadSpeed"].toString()));
+            uploadCount =
+                formatSpeed(double.parse(data["uploadSpeed"].toString()));
+            totalDownload =
+                formatBytes(double.parse(data["totalDownload"].toString()));
+            totalUpload =
+                formatBytes(double.parse(data["totalUpload"].toString()));
+            duration = data["duration"].toString();
+          });
+        }
       });
 
-      // Always listen to VPN status snapshot
       _vpnStatusSubscription = wireguard.vpnStageSnapshot.listen((event) async {
-        debugPrint("VPN status changed: $event");
-        vpnState = event.name;
-        setState(() {});
+        if (mounted) {
+          setState(() {
+            vpnState = event.name;
+          });
+        }
       });
 
-      // Check if VPN is connected at startup
       wireguard.isConnected().then((isConnected) {
-        if (isConnected) {
-          debugPrint("VPN is already connected");
-
-          vpnState = VpnEngine.vpnConnected;
-          setState(() {});
-        } else {
-          debugPrint("VPN is not connected");
-
-          vpnState = VpnEngine.vpnDisconnected;
-          setState(() {});
+        if (mounted) {
+          setState(() {
+            vpnState = isConnected
+                ? VpnEngine.vpnConnected
+                : VpnEngine.vpnDisconnected;
+          });
         }
       });
     });
@@ -96,13 +101,18 @@ PersistentKeepalive = 25
   Future<void> initialize() async {
     try {
       await wireguard.initialize(
-        interfaceName: "wg_vpn",
-        vpnName: "Orban VPN", // Custom VPN name for notification
+        interfaceName: "wgflutter",
+        vpnName: "Orban VPN",
         iosAppGroup: "group.com.orbanvpn.wireguard.WGExtension",
       );
-      debugPrint("initialize success 'wg_vpn' with custom name 'Orban VPN'");
-    } catch (error, stack) {
-      debugPrint("failed to initialize: $error\n$stack");
+    } catch (_) {}
+  }
+
+  void _onConnectionPressed() {
+    if (vpnState == VpnEngine.vpnConnected) {
+      disconnect();
+    } else if (vpnState == VpnEngine.vpnDisconnected) {
+      startVpn();
     }
   }
 
@@ -113,187 +123,81 @@ PersistentKeepalive = 25
         wgQuickConfig: _config.text,
         providerBundleIdentifier: 'com.orbanvpn.wireguard.WGExtension',
       );
-    } catch (error, stack) {
-      debugPrint("failed to start $error\n$stack");
-    }
+    } catch (_) {}
   }
 
   void disconnect() async {
     try {
       await wireguard.stopVpn();
-      wireguard.stopVpn();
-
-      vpnState = VpnEngine.vpnDisconnected;
-      downloadCount = "0.0";
-      uploadCount = "0.0";
-      totalDownload = "0";
-      totalUpload = "0";
-      duration = "00:00:00";
-      setState(() {});
-    } catch (e, str) {
-      debugPrint('Failed to disconnect $e\n$str');
-    }
+      if (mounted) {
+        setState(() {
+          vpnState = VpnEngine.vpnDisconnected;
+          downloadCount = "0.0 B/s";
+          uploadCount = "0.0 B/s";
+          totalDownload = "0 B";
+          totalUpload = "0 B";
+          duration = "00:00:00";
+        });
+      }
+    } catch (_) {}
   }
 
-  void getStatus() async {
-    debugPrint("getting stage");
-    final stage = await wireguard.stage();
-
-    debugPrint("stage: $stage");
-
-    if (mounted) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('stage: $stage')));
-    }
+  String formatSpeed(double speedInBytes) {
+    if (speedInBytes < 1024) return "${speedInBytes.toStringAsFixed(0)} B/s";
+    if (speedInBytes < 1024 * 1024)
+      return "${(speedInBytes / 1024).toStringAsFixed(1)} KB/s";
+    if (speedInBytes < 1024 * 1024 * 1024)
+      return "${(speedInBytes / (1024 * 1024)).toStringAsFixed(1)} MB/s";
+    return "${(speedInBytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB/s";
   }
 
-  String formatSpeed(double speedInKBps, {int decimals = 2}) {
-    const suffixes = ["Byts", "KB/s", "MB/s", "GB/s", "TB/s"];
-
-    if (speedInKBps < 1024) {
-      return '${speedInKBps.toStringAsFixed(decimals)} ${suffixes[0]}';
-    }
-
-    int i = (log(speedInKBps) / log(1024)).floor();
-    return '${(speedInKBps / pow(1024, i)).toStringAsFixed(decimals)} ${suffixes[i]}';
+  String formatBytes(double bytes) {
+    if (bytes < 1024) return "${bytes.toStringAsFixed(0)} B";
+    if (bytes < 1024 * 1024) return "${(bytes / 1024).toStringAsFixed(1)} KB";
+    if (bytes < 1024 * 1024 * 1024)
+      return "${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB";
+    return "${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB";
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints.expand(),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('WireGuard Flutter'),
+        centerTitle: true,
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text('VPN State: $vpnState'),
-              Text("Duration: $duration"),
-              const SizedBox(height: 10),
-              Text(
-                'Total Download: ${formatSpeed(double.parse(totalDownload))}',
-              ),
-              Text('Total Upload: ${formatSpeed(double.parse(totalUpload))}'),
-              const SizedBox(height: 10),
-              Text(
-                'Download Speed: ${formatSpeed(double.parse(downloadCount))}',
-              ),
-              Text('Upload Speed: ${formatSpeed(double.parse(uploadCount))}'),
               const SizedBox(height: 20),
-              TextFormField(
-                controller: _config,
-                maxLines: 10,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  labelText: 'WireGuard Config',
-                  hintText: 'Paste your WireGuard config here',
-                ),
+              ConnectionButton(
+                onPressed: _onConnectionPressed,
+                status: vpnState,
+                duration: duration,
               ),
+              const SizedBox(height: 40),
+              TrafficStatsWidget(
+                downloadSpeed: downloadCount,
+                uploadSpeed: uploadCount,
+                totalDownload: totalDownload,
+                totalUpload: totalUpload,
+              ),
+              const SizedBox(height: 40),
+              ConfigInputWidget(controller: _config),
             ],
           ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              TextButton(
-                onPressed: initialize,
-                style: ButtonStyle(
-                  minimumSize: WidgetStateProperty.all<Size>(
-                    const Size(100, 50),
-                  ),
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.fromLTRB(20, 15, 20, 15),
-                  ),
-                  backgroundColor: WidgetStateProperty.all<Color>(
-                    Colors.blueAccent,
-                  ),
-                  overlayColor: MaterialStateProperty.all<Color>(
-                    Colors.white.withOpacity(0.1),
-                  ),
-                ),
-                child: const Text(
-                  'initialize',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 20),
-              TextButton(
-                onPressed: startVpn,
-                style: ButtonStyle(
-                  minimumSize: MaterialStateProperty.all<Size>(
-                    const Size(100, 50),
-                  ),
-                  padding: MaterialStateProperty.all(
-                    const EdgeInsets.fromLTRB(20, 15, 20, 15),
-                  ),
-                  backgroundColor: MaterialStateProperty.all<Color>(
-                    Colors.blueAccent,
-                  ),
-                  overlayColor: MaterialStateProperty.all<Color>(
-                    Colors.white.withOpacity(0.1),
-                  ),
-                ),
-                child: const Text(
-                  'Connect',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-              const SizedBox(width: 20),
-              TextButton(
-                onPressed: disconnect,
-                style: ButtonStyle(
-                  minimumSize: WidgetStateProperty.all<Size>(
-                    const Size(100, 50),
-                  ),
-                  padding: WidgetStateProperty.all(
-                    const EdgeInsets.fromLTRB(20, 15, 20, 15),
-                  ),
-                  backgroundColor: WidgetStateProperty.all<Color>(
-                    Colors.blueAccent,
-                  ),
-                  overlayColor: WidgetStateProperty.all<Color>(
-                    Colors.white.withOpacity(0.1),
-                  ),
-                ),
-                child: const Text(
-                  'Disconnect',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          TextButton(
-            onPressed: getStatus,
-            style: ButtonStyle(
-              minimumSize: WidgetStateProperty.all<Size>(const Size(100, 50)),
-              padding: WidgetStateProperty.all(
-                const EdgeInsets.fromLTRB(20, 15, 20, 15),
-              ),
-              backgroundColor: WidgetStateProperty.all<Color>(
-                Colors.blueAccent,
-              ),
-              overlayColor: WidgetStateProperty.all<Color>(
-                Colors.white.withOpacity(0.1),
-              ),
-            ),
-            child: const Text(
-              'Get status',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
 class VpnEngine {
-  ///All Stages of connection
   static const String vpnConnecting = "connecting";
   static const String vpnConnected = "connected";
   static const String vpnDisconnecting = "disconnecting";

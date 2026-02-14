@@ -22,16 +22,20 @@ namespace wireguard_flutter
   private:
     std::string message_;
     unsigned long error_code_;
+    std::string full_message_;
 
   public:
-    explicit ServiceControlException(const std::string &msg) : message_(msg), error_code_(0) {}
+    explicit ServiceControlException(const std::string &msg) : message_(msg), error_code_(0) {
+      full_message_ = message_ + " (" + std::to_string(error_code_) + ")";
+    }
 
-    ServiceControlException(const std::string &msg, unsigned long errc) : message_(msg), error_code_(errc) {}
+    ServiceControlException(const std::string &msg, unsigned long errc) : message_(msg), error_code_(errc) {
+      full_message_ = message_ + " (" + std::to_string(error_code_) + ")";
+    }
 
     const char *what() const noexcept override
     {
-      std::string s = message_ + " (" + std::to_string(error_code_) + ")";
-      return s.c_str();
+      return full_message_.c_str();
     }
 
     unsigned long GetErrorCode() const noexcept
@@ -376,6 +380,71 @@ namespace wireguard_flutter
       return;
     }
     events_->Success(flutter::EncodableValue(state));
+  }
+
+  int64_t ServiceControl::GetServiceStartTime()
+  {
+      SC_HANDLE service_manager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
+      if (service_manager == NULL) {
+          return 0;
+      }
+
+      SC_HANDLE service = OpenService(service_manager, &service_name_[0], SERVICE_QUERY_STATUS);
+      if (service == NULL) {
+          CloseServiceHandle(service_manager);
+          return 0;
+      }
+
+      SERVICE_STATUS_PROCESS ssStatus;
+      DWORD dwBytesNeeded;
+      if (!QueryServiceStatusEx(service, SC_STATUS_PROCESS_INFO, (LPBYTE)&ssStatus, sizeof(SERVICE_STATUS_PROCESS), &dwBytesNeeded)) {
+          CloseServiceHandle(service);
+          CloseServiceHandle(service_manager);
+          return 0;
+      }
+
+      CloseServiceHandle(service);
+      CloseServiceHandle(service_manager);
+
+      if (ssStatus.dwCurrentState != SERVICE_RUNNING) {
+          return 0;
+      }
+
+      DWORD pid = ssStatus.dwProcessId;
+      if (pid == 0) return 0;
+
+      HANDLE hProcess = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+      if (hProcess == NULL) return 0;
+
+      FILETIME creationTime, exitTime, kernelTime, userTime;
+      int64_t startTime = 0;
+      if (GetProcessTimes(hProcess, &creationTime, &exitTime, &kernelTime, &userTime)) {
+          ULARGE_INTEGER ull;
+          ull.LowPart = creationTime.dwLowDateTime;
+          ull.HighPart = creationTime.dwHighDateTime;
+          
+          // Convert file time to system tick count equivalent (approximate)
+          // Actually, we want to return a value compatible with GetTickCount64() logic or just use system time.
+          // Problem: GetTickCount64 is "uptime". Process creation time is absolute.
+          // We need to sync them. 
+          // Current Time (FileTime) - Creation Time (FileTime) = Duration (FileTime units)
+          // Duration in ms = Duration / 10000.
+          
+          FILETIME now;
+          GetSystemTimeAsFileTime(&now);
+          ULARGE_INTEGER ullNow;
+          ullNow.LowPart = now.dwLowDateTime;
+          ullNow.HighPart = now.dwHighDateTime;
+
+          uint64_t duration_ms = (ullNow.QuadPart - ull.QuadPart) / 10000;
+          
+          // Since our plugin logic uses: duration = GetTickCount64() - start_time_
+          // We need start_time_ = GetTickCount64() - duration_ms
+          startTime = GetTickCount64() - duration_ms;
+      }
+
+      CloseHandle(hProcess);
+      return startTime;
   }
 
 } // namespace wireguard_flutter
