@@ -1,3 +1,7 @@
+## 1.0.3
+* Add Windows support.
+* Add support crypto address in README.md.
+
 ## 1.0.2
 * Improve package description.
 * Update dependencies.
