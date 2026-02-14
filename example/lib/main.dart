@@ -44,8 +44,8 @@ class _MyAppState extends State<MyApp> {
   final _config = TextEditingController(
     text: '''
 [Interface]
-PrivateKey = MDYozik16VlvjEBEbT1vybGD30UWLYcxDjHjKwJ9U3c=
-Address = 10.104.1.26/32
+PrivateKey = SKYYR9cp1GwZ8gnfhHyVc98uJpTgi3sqjJmezs8RqmI=
+Address = 10.104.0.111/32
 DNS = 1.1.1.1, 8.8.8.8
 
 [Peer]
@@ -53,6 +53,7 @@ PublicKey = Rn6w1t6actF9XC0bMIXxO25rf31uFqm2/n5sYyK1UzQ=
 Endpoint = 147.135.37.178:443
 AllowedIPs = 0.0.0.0/0, ::/0
 PersistentKeepalive = 25
+
  ''',
   );
 

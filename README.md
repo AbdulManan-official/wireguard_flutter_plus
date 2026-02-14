@@ -190,3 +190,10 @@ When `initialize` is called, the app may ask for the user password (`[sudo] pass
 ---
 
 *"WireGuard" is a registered trademark of Jason A. Donenfeld.*
+
+## Support
+
+If you find this package useful, you can support the maintenance and development by donating:
+
+- **USDT (BEP20):** `0x098f0ba20623c174f2be44dc647334bdb7cadba9`
+- **USDT (TRC20):** `TNieNaB8WQ5UmQKt75e3ZeLAnSSnWLjhT3`
