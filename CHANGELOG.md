@@ -1,3 +1,6 @@
+## 1.0.4
+* Add VPN Server Hub banners to README.md.
+
 ## 1.0.3
 * Add Windows support.
 * Add support crypto address in README.md.
