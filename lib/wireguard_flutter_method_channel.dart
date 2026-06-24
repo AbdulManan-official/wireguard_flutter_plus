@@ -40,16 +40,21 @@ class WireGuardFlutterMethodChannel extends WireGuardFlutterInterface {
       });
 
   @override
-  @override
   Future<void> initialize(
-      {required String interfaceName, String? vpnName, String? iosAppGroup}) {
+      {required String interfaceName, String? vpnName, String? iosAppGroup, String? extensionBundleId}) {
     return _methodChannel.invokeMethod("initialize", {
       "localizedDescription": interfaceName,
       "win32ServiceName": interfaceName,
       "vpnName": vpnName ??
           "WireGuard VPN", // Default to "WireGuard VPN" if not provided
-      "groupId": iosAppGroup
+      "groupId": iosAppGroup,
+      "extensionBundleId": extensionBundleId
     });
+  }
+
+  @override
+  Future<void> requestMacSystemExtension(String bundleId) async {
+    return _methodChannel.invokeMethod("requestMacSystemExtension", {"bundleId": bundleId});
   }
 
   @override
@@ -57,11 +62,15 @@ class WireGuardFlutterMethodChannel extends WireGuardFlutterInterface {
     required String serverAddress,
     required String wgQuickConfig,
     required String providerBundleIdentifier,
+    List<String>? excludedApps,
+    List<String>? includedApps,
   }) async {
     return _methodChannel.invokeMethod("start", {
       "serverAddress": serverAddress,
       "wgQuickConfig": wgQuickConfig,
       "providerBundleIdentifier": providerBundleIdentifier,
+      if (excludedApps != null && excludedApps.isNotEmpty) "excludedApps": excludedApps.join(','),
+      if (includedApps != null && includedApps.isNotEmpty) "includedApps": includedApps.join(','),
     });
   }
 

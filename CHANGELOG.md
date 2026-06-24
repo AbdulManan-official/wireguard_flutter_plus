@@ -1,3 +1,6 @@
+## 1.0.6
+* Added Split Tunneling feature (includedApps/excludedApps) support for Android and Linux.
+
 ## 1.0.5
 * Fixed Android 16KB page size crash by updating WireGuard Tunnel dependency.
 
