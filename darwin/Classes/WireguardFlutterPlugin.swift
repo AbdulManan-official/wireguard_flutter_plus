@@ -429,7 +429,8 @@ class VPNUtils {
                         } else if let session = tunnelManager.connection as? NETunnelProviderSession {
                             do {
                                 try session.startTunnel(options: nil)
-                                 self.vpnStartTime = Date() 
+                                self.vpnStartTime = Date() 
+                                self.providerManager = tunnelManager
                                 completion(true)
                             } catch {
                                 print("Error (startTunnel): \(error)")

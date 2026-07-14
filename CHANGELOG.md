@@ -1,3 +1,7 @@
+## 1.0.7
+* Fixed iOS native code returning 0 for traffic stats on very first VPN connection.
+* Fixed Dart layer mapping `VpnStage.denied` to `VpnStage.disconnected`.
+
 ## 1.0.6
 * Added Split Tunneling feature (includedApps/excludedApps) support for Android and Linux.
 
